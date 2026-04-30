@@ -1,0 +1,14 @@
+spacy>=3.7.0
+requests>=2.31.0
+tqdm>=4.66.0
+ebooklib>=0.18
+beautifulsoup4>=4.12.0
+
+# vLLM is the inference server — run separately:
+#   pip install vllm
+#   python -m vllm.entrypoints.openai.api_server --model google/gemma-4-31b-it
+
+# After installing spacy, download the transformer model:
+#   python -m spacy download en_core_web_trf
+# Fallback (faster, less accurate):
+#   python -m spacy download en_core_web_sm
