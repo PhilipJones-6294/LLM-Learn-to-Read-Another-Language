@@ -245,6 +245,7 @@ def segment(text: str, config) -> Tuple[List[Dict], List[Dict]]:
 
                     clause_data: Dict = {
                         "clause_id": f"{scene_id}_cl{global_clause_idx:06d}",
+                        "scene_id": scene_id,
                         "text": clause_text,
                         "position": None,
                         "budget": None,

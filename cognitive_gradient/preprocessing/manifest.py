@@ -1,9 +1,8 @@
 import json
 import logging
 import os
+from collections import defaultdict
 from typing import Dict, List, Optional
-
-from cognitive_gradient.pipeline.budget import calculate_budget, determine_stage
 
 logger = logging.getLogger(__name__)
 
@@ -17,35 +16,37 @@ def load_manifest(manifest_path: str) -> Dict:
         return json.load(f)
 
 
+def _extract_scene_id(clause_id: str) -> str:
+    """Extract scene_id from clause_id — format: ch01_sc000_cl000007 → ch01_sc000."""
+    idx = clause_id.rfind("_cl")
+    return clause_id[:idx] if idx != -1 else clause_id
+
+
 def build_manifest(
     all_clauses: List[Dict],
     all_scenes: List[Dict],
     scene_summaries: List[Dict],
     config,
     novel_title: str = "Unknown",
+    priority_phrases: Optional[List[str]] = None,
 ) -> None:
     """
-    Merge segmentation output with scene summaries, compute positions/budgets,
-    populate local context windows, then write manifest.json to disk.
+    Build manifest.json from the consolidated clause list.
+
+    all_clauses must have position/budget/stage already set (via assign_positions).
+    all_scenes is used only for metadata (scene order, chapter, heading).
+    Clauses are grouped into scenes using their scene_id field.
+    priority_phrases are stamped onto each clause so the translator prompt knows
+    which high-frequency targets appear in that clause.
     """
     os.makedirs(os.path.dirname(os.path.abspath(config.MANIFEST_PATH)), exist_ok=True)
-
-    # Index summaries by scene_id for O(1) lookup
-    summary_index: Dict[str, Dict] = {s["scene_id"]: s for s in scene_summaries}
 
     total_clauses = len(all_clauses)
     if total_clauses == 0:
         raise ValueError("No clauses extracted — check input file and segmenter.")
 
-    # Pass 1: compute position, budget, stage for every clause
-    for global_idx, clause in enumerate(all_clauses):
-        position = global_idx / max(total_clauses - 1, 1)
-        token_count = len(clause["text"].split())
-        clause["position"] = round(position, 6)
-        clause["budget"] = calculate_budget(position, token_count, config)
-        clause["stage"] = determine_stage(position, config)
-
-    # Pass 2: populate local context windows
+    # Positions/budgets/stages are assumed pre-assigned by assign_positions().
+    # Populate local context windows.
     wb = config.LOCAL_WINDOW_BEFORE
     wa = config.LOCAL_WINDOW_AFTER
     for global_idx, clause in enumerate(all_clauses):
@@ -58,21 +59,41 @@ def build_manifest(
             for i in range(global_idx + 1, min(total_clauses, global_idx + wa + 1))
         ]
 
-    # Pass 3: merge scene summaries into scene dicts and build manifest structure
+        # Stamp priority phrases that appear in this clause
+        if priority_phrases:
+            clause_lower = clause["text"].lower()
+            clause["priority_phrases"] = [
+                p for p in priority_phrases if p in clause_lower
+            ]
+        else:
+            clause["priority_phrases"] = []
+
+    # Group consolidated clauses by scene_id (preserving order)
+    scene_clause_map: Dict[str, List[Dict]] = defaultdict(list)
+    for clause in all_clauses:
+        sid = clause.get("scene_id") or _extract_scene_id(clause["clause_id"])
+        scene_clause_map[sid].append(clause)
+
+    # Index scene metadata and summaries
+    scene_meta = {s["scene_id"]: s for s in all_scenes}
+    summary_index = {s["scene_id"]: s for s in scene_summaries}
+
+    # Build manifest scenes in original scene order
     manifest_scenes: List[Dict] = []
     for scene in all_scenes:
         sid = scene["scene_id"]
+        meta = scene_meta.get(sid, scene)
         summary = summary_index.get(sid, {})
 
         manifest_scenes.append(
             {
                 "scene_id": sid,
-                "chapter": scene["chapter"],
-                "chapter_heading": scene.get("chapter_heading", ""),
+                "chapter": meta.get("chapter", 0),
+                "chapter_heading": meta.get("chapter_heading", ""),
                 "stake": summary.get("stake", ""),
                 "emotional_register": summary.get("emotional_register", "neutral"),
                 "soft_anchors": summary.get("soft_anchors", []),
-                "clauses": scene["clauses"],
+                "clauses": scene_clause_map.get(sid, []),
             }
         )
 

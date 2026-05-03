@@ -1,6 +1,7 @@
 import json
 import logging
 import os
+import statistics
 from typing import Dict, List, Optional
 
 import requests
@@ -54,6 +55,7 @@ def call_translator(
         scene_stake=scene_data.get("stake", ""),
         scene_tone=scene_data.get("emotional_register", ""),
         excluded_phrases=excluded_phrases,
+        priority_phrases=clause_data.get("priority_phrases", []),
     )
     return call_vllm(messages, config)
 
@@ -128,3 +130,91 @@ def process_clause(clause_data: Dict, scene_data: Dict, config) -> str:
     logger.warning("Max rollback attempts reached for %s", clause_data["clause_id"])
     # Return the last gradient rather than the original — it's usually acceptable
     return last_gradient_result.get("gradient", original_text) if last_gradient_result else original_text
+
+
+# ── Two-pass architecture: Pass 1 canonical translation ───────────────────────
+
+def _extract_scene_id(clause_id: str) -> str:
+    idx = clause_id.rfind("_cl")
+    return clause_id[:idx] if idx != -1 else clause_id
+
+
+def translate_canonical(cluster: Dict, scene_lookup: Dict, config) -> Dict:
+    """
+    Translate a cluster's canonical form for ledger seeding (Pass 1).
+
+    Uses median position and frequency override for stage/budget.
+    Falls back to original text on LLM error.
+    """
+    from cognitive_gradient.pipeline.budget import stage_for_cluster, median_position, calculate_budget
+
+    canonical = cluster["canonical"]
+    stage = stage_for_cluster(cluster, config)
+    med_pos = median_position(cluster)
+    budget = calculate_budget(med_pos, len(canonical.split()), config)
+
+    # Find scene context from the canonical member
+    canonical_member = next(
+        (m for m in cluster["members"] if m["text"] == canonical),
+        cluster["members"][0],
+    )
+    sid = _extract_scene_id(canonical_member["clause_id"])
+    scene_data = scene_lookup.get(
+        sid, {"stake": "", "emotional_register": "neutral", "soft_anchors": []}
+    )
+
+    canonical_clause_data: Dict = {
+        "text": canonical,
+        "stage": stage,
+        "budget": budget,
+        "hard_anchors": cluster.get("canonical_hard_anchors", []),
+        "local_before": [],
+        "local_after": [],
+        "clause_id": canonical_member["clause_id"],
+        "priority_phrases": [],
+    }
+
+    try:
+        return call_translator(canonical_clause_data, scene_data, excluded_phrases=[], config=config)
+    except Exception as exc:
+        logger.warning("translate_canonical failed for cluster %s: %s", cluster["cluster_id"], exc)
+        return {"gradient": canonical, "stage": stage, "budget_used": 0, "substitutions": []}
+
+
+# ── Two-pass architecture: Pass 2 ledger-first translation ────────────────────
+
+def process_clause_with_ledger(clause: Dict, scene: Dict, ledger, config) -> str:
+    """
+    Translate a clause using the ledger as primary source.
+
+    Hit path  → return cached gradient (with optional contextual variation)
+    Miss path → LLM call via rollback loop → write back to ledger
+    """
+    # 1. Exact / normalized lookup
+    hit = ledger.lookup(clause["text"])
+
+    # 2. Cluster membership lookup
+    if hit is None:
+        hit = ledger.lookup_cluster_member(clause["clause_id"])
+
+    if hit is not None:
+        gradient = hit["gradient"]
+
+        # Contextual variation: IMMERSION + non-neutral scene only
+        if (
+            clause.get("stage") == "IMMERSION"
+            and scene.get("emotional_register", "neutral") != "neutral"
+            and getattr(config, "ALLOW_CONTEXTUAL_VARIATION", True)
+        ):
+            from cognitive_gradient.pipeline.variation import apply_variation
+            gradient = apply_variation(gradient, clause, scene, config)
+
+        return gradient
+
+    # 3. Genuine miss — full rollback loop, then write to ledger
+    gradient = process_clause(clause, scene, config)
+    try:
+        ledger.write(clause["text"], {"gradient": gradient, "stage": clause.get("stage", ""), "budget_used": 0, "substitutions": []})
+    except Exception as exc:
+        logger.debug("Ledger write failed for %s: %s", clause["clause_id"], exc)
+    return gradient

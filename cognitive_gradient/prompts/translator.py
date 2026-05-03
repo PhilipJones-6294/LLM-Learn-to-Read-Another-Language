@@ -74,6 +74,7 @@ LOCAL_AFTER: "{local_after}"
 SCENE_STAKE: "{scene_stake}"
 SCENE_TONE: "{scene_tone}"
 READER_CONTEXT: "Reader has prior knowledge of the full story in their native language."
+PRIORITY_PHRASES: {priority_phrases}
 EXCLUDED_PHRASES: {excluded_phrases}"""
 
 
@@ -88,10 +89,12 @@ def build_messages(
     scene_stake: str,
     scene_tone: str,
     excluded_phrases: list,
+    priority_phrases: list = None,
 ) -> list:
     local_before_str = " | ".join(local_before) if local_before else ""
     local_after_str = " | ".join(local_after) if local_after else ""
     excluded_str = str(excluded_phrases) if excluded_phrases else "[]"
+    priority_str = str(priority_phrases) if priority_phrases else "[]"
 
     user_content = USER_TEMPLATE.format(
         clause=clause,
@@ -103,6 +106,7 @@ def build_messages(
         local_after=local_after_str,
         scene_stake=scene_stake or "",
         scene_tone=scene_tone or "",
+        priority_phrases=priority_str,
         excluded_phrases=excluded_str,
     )
     return [
