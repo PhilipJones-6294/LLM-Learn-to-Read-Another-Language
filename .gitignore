@@ -1,0 +1,37 @@
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+.Python
+*.egg-info/
+dist/
+build/
+.eggs/
+
+# Virtual environments
+.venv/
+venv/
+env/
+
+# Data outputs (large / generated)
+data/output/
+data/manifest.json
+data/ledger.db
+data/phrase_frequencies.json
+data/flagged_clauses.log
+
+# Keep input and gitkeep markers
+!data/input/
+!data/output/.gitkeep
+!data/input/.gitkeep
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
