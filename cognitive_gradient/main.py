@@ -192,6 +192,15 @@ def run(
 
 
 if __name__ == "__main__":
+    # Allow both invocation styles from the project root:
+    #   python cognitive_gradient/main.py   (direct)
+    #   python -m cognitive_gradient.main   (module)
+    import os as _os
+
+    _project_root = _os.path.dirname(_os.path.dirname(_os.path.abspath(__file__)))
+    if _project_root not in sys.path:
+        sys.path.insert(0, _project_root)
+
     args = _parse_args()
     run(
         force_preprocess=args.force_preprocess,
