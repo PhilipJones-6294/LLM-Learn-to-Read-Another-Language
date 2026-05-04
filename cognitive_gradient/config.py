@@ -1,7 +1,8 @@
 VLLM_BASE_URL = "http://localhost:8000/v1"
-MODEL_NAME = "google/gemma-4-31b-it"   # confirm with GET /v1/models
+MODEL_NAME = "/models/gemma4"   # confirm with GET /v1/models
 MAX_TOKENS = 1024
 TEMPERATURE = 0.2
+VLLM_API_KEY = "dummy"  # Not used, but vLLM API requires an Authorization header
 
 INPUT_PATH = "data/input/harry_potter_1.txt"
 OUTPUT_PATH = "data/output/hp1_gradient.txt"
