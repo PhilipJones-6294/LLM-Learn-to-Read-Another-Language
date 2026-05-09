@@ -9,9 +9,10 @@ OUTPUT_PATH = "data/output/hp1_gradient.txt"
 MANIFEST_PATH = "data/manifest.json"
 
 # S-Curve parameters
-SCURVE_STEEPNESS = 8
-SCURVE_MIDPOINT = 0.55
+SCURVE_STEEPNESS = 5
+SCURVE_MIDPOINT = 0.88
 MAX_BUDGET_PER_CLAUSE = 10
+
 
 # Scene segmentation
 MIN_SCENE_TOKENS = 300
