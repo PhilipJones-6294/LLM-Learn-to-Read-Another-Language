@@ -17,4 +17,4 @@ docker run -itd --name gemma4 \
 
 docker logs -f gemma4
 
-python sb.py --host 0.0.0.0
+python reader.py --host 0.0.0.0 --port 5001
