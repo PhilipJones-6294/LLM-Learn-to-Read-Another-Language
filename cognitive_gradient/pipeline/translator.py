@@ -17,17 +17,20 @@ def call_vllm(messages: list, config) -> dict:
     """POST to the vLLM OpenAI-compatible endpoint and return parsed JSON."""
     response = requests.post(
         f"{config.VLLM_BASE_URL}/chat/completions",
+        headers={
+            "Content-Type": "application/json",
+            "Authorization": f"Bearer {getattr(config, 'VLLM_API_KEY', 'dummy')}",
+        },
         json={
             "model": config.MODEL_NAME,
             "messages": messages,
             "max_tokens": config.MAX_TOKENS,
             "temperature": config.TEMPERATURE,
         },
-        timeout=60,
+        timeout=120,
     )
     response.raise_for_status()
     content = response.json()["choices"][0]["message"]["content"]
-    # Strip accidental markdown fences before parsing
     content = content.strip().lstrip("```json").lstrip("```").rstrip("```").strip()
     return json.loads(content)
 

@@ -1,16 +1,18 @@
 VLLM_BASE_URL = "http://localhost:8000/v1"
-MODEL_NAME = "google/gemma-4-31b-it"   # confirm with GET /v1/models
+MODEL_NAME = "/models/gemma4"   # confirm with GET /v1/models
 MAX_TOKENS = 1024
 TEMPERATURE = 0.2
+VLLM_API_KEY = "dummy"  # Not used, but vLLM API requires an Authorization header
 
 INPUT_PATH = "data/input/harry_potter_1.txt"
 OUTPUT_PATH = "data/output/hp1_gradient.txt"
 MANIFEST_PATH = "data/manifest.json"
 
 # S-Curve parameters
-SCURVE_STEEPNESS = 8
-SCURVE_MIDPOINT = 0.55
+SCURVE_STEEPNESS = 5
+SCURVE_MIDPOINT = 0.88
 MAX_BUDGET_PER_CLAUSE = 10
+
 
 # Scene segmentation
 MIN_SCENE_TOKENS = 300

@@ -12,6 +12,10 @@ def _call_vllm(messages: list, config) -> dict:
 
     response = requests.post(
         f"{config.VLLM_BASE_URL}/chat/completions",
+        headers={
+            "Content-Type": "application/json",
+            "Authorization": f"Bearer {getattr(config, 'VLLM_API_KEY', 'dummy')}",
+        },
         json={
             "model": config.MODEL_NAME,
             "messages": messages,

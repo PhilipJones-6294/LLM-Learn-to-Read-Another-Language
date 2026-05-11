@@ -20,7 +20,7 @@ def determine_stage(position: float, config) -> str:
     intensity = scurve(position, config.SCURVE_STEEPNESS, config.SCURVE_MIDPOINT)
     if intensity < 0.25:
         return "COGNATE"
-    if intensity < 0.65:
+    if intensity < 0.60:
         return "INFERABLE"
     return "IMMERSION"
 
