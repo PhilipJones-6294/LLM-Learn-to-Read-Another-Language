@@ -235,6 +235,93 @@ python run.py --force-preprocess
 
 ---
 
+## Reading the Output — Tailscale Web Reader
+
+`reader.py` is a lightweight Flask web server that serves the gradient novel as a chapter-navigable reading interface. It is designed to run on the DGX Spark (or any machine running the pipeline) and be read from any device on your Tailscale network — phone, tablet, laptop.
+
+### What the reader provides
+
+- Clean, typeset reading interface (sepia background, serif font, 680 px column)
+- Chapter selector drop-down and prev / next navigation
+- A progress bar across the top of every page showing novel position (English → French)
+- A per-chapter language-mix badge showing estimated French content percentage
+- No login — Tailscale handles access control
+
+### Setup
+
+Tailscale must be installed and running on both the server machine and the reading device. If it is not already installed:
+
+```bash
+# On the DGX Spark (or wherever the pipeline runs)
+curl -fsSL https://tailscale.com/install.sh | sh
+sudo tailscale up
+```
+
+Find the machine's Tailscale IP:
+
+```bash
+tailscale ip -4
+# e.g. 100.x.y.z
+```
+
+### Starting the reader
+
+Run the gradient pipeline first to produce an output file, then start the reader:
+
+```bash
+# Generate the novel
+python run.py
+
+# Start the reader (default port 8080, default file from config.OUTPUT_PATH)
+python reader.py
+
+# Override file or port if needed
+python reader.py --file data/output/my_novel_gradient.txt --port 9000
+```
+
+The reader prints the access URLs on startup:
+
+```
+Loaded 17 chapters from data/output/hp1_gradient.txt
+
+  Reader running at  http://localhost:8080
+  Tailscale access   http://100.x.y.z:8080
+
+  Press Ctrl+C to stop.
+```
+
+### Reading from another device
+
+On any phone, tablet, or laptop connected to your Tailscale network, open:
+
+```
+http://<tailscale-ip>:8080
+```
+
+No additional firewall rules or port forwarding are needed — Tailscale's encrypted overlay network handles routing.
+
+### Reader CLI options
+
+| Flag | Default | Description |
+|------|---------|-------------|
+| `--file PATH` | `config.OUTPUT_PATH` | Gradient novel file to serve |
+| `--port N` | `8080` | Port to listen on |
+| `--host ADDR` | `0.0.0.0` | Interface to bind (0.0.0.0 = all, including Tailscale) |
+
+### Running as a background service (optional)
+
+To keep the reader running after you close the terminal:
+
+```bash
+nohup python reader.py > data/reader.log 2>&1 &
+echo $! > data/reader.pid
+
+# To stop it later:
+kill $(cat data/reader.pid)
+```
+
+---
+
 ## Pipeline Overview
 
 The pipeline runs in two passes.
@@ -321,6 +408,12 @@ Adjust `SCURVE_STEEPNESS` (sharpness) and `SCURVE_MIDPOINT` (where the fastest t
 **Output has character-name drift in late chapters**  
 Add the drifting name to `EXPLICIT_ANCHORS` in `config.py` and re-run with `--force-preprocess`.
 
+**Reader: `No module named 'flask'`**  
+Run `pip install -r requirements.txt` — Flask was added in the latest version of the requirements file.
+
+**Reader: can't reach the server from my phone**  
+Confirm Tailscale is running on both devices (`tailscale status`). Use the IP printed by `tailscale ip -4`, not the machine's LAN IP. The reader must be started with `--host 0.0.0.0` (the default) so it binds to all interfaces including the Tailscale one.
+
 ---
 
 ## Project Structure
@@ -354,6 +447,7 @@ data/
 ├── input/                      Place your .txt or .epub here
 └── output/                     Gradient novel is written here
 
-run.py                          Top-level launcher
+run.py                          Gradient pipeline launcher
+reader.py                       Tailscale web reader server
 requirements.txt
 ```

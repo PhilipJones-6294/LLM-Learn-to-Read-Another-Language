@@ -3,6 +3,7 @@ requests>=2.31.0
 tqdm>=4.66.0
 ebooklib>=0.18
 beautifulsoup4>=4.12.0
+flask>=3.0.0
 
 # vLLM is the inference server — run separately:
 #   pip install vllm
